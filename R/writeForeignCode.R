@@ -26,7 +26,7 @@ adQuote <- function(x) paste("\"", x, "\"", sep = "")
 
 
 
-## FIXME: 
+## FIXME:
 # - Missing values
 # - Date/Time
 # - character variables > 255 chars
@@ -54,32 +54,39 @@ writeForeignSPSS <- function(df, datafile, codefile, varnames = NULL, maxchars =
     chv <- sapply(df, is.character)
     fav <- sapply(df, is.factor)
     if (any(chv)) {
-        lengths <- sapply(df[chv],function(v) max(c(nchar(v),8), na.rm=TRUE))                         
+        lengths <- sapply(df[chv],function(v) max(c(nchar(v),8), na.rm=TRUE))
         lengths <- paste0("(A", lengths, ")")
         dl.varnames[chv] <- paste(dl.varnames[chv], lengths)
     }
     if (any(fav)) {
-        dl.varnames[fav] <- paste(dl.varnames[fav], "(F8.0)")  # Factor-Format    
-    }    
+        dl.varnames[fav] <- paste(dl.varnames[fav], "(F8.0)")  # Factor-Format
+    }
     if (any(chv) || any(fav)) {
         ## actually the rule is: prepend a star if a variable with type/size declaration
-        ## follows on a variable without declaration; no star for first variable or variables 
+        ## follows on a variable without declaration; no star for first variable or variables
         ## following other variables with declarations
         star <- ifelse(c(FALSE, diff(chv | fav) == 1)[chv | fav], " *", " ")
         dl.varnames[chv | fav] <- paste(star,  dl.varnames[chv | fav])
     }
-  
+
     cat("SET DECIMAL=DOT.\n\n", file = codefile) # required if SPSS runs in a locale with DECIMAL=comma
     cat("DATA LIST FILE=", adQuote(datafile), " free (\",\")\n",
         file = codefile, append = TRUE)
     cat('ENCODING="Locale"\n', file = codefile, append = TRUE)
 
     ## No line longer than 251 chars:
-    cat("/", paste(strwrap(paste(dl.varnames, collapse=" "), width=70), "\n"), " .\n\n", 
+    cat("/", paste(strwrap(paste(dl.varnames, collapse=" "), width=70), "\n"), " .\n\n",
         file = codefile, append = TRUE)
     cat("VARIABLE LABELS\n", file = codefile, append = TRUE)
-    cat(paste(varnames, adQuote(varlabels),"\n"), ".\n",
-        file = codefile, append = TRUE)
+    if(!is.null(attributes(df)$variable.labels))
+    {
+      cat(paste(varnames, adQuote(attributes(df)$variable.labels),"\n"), ".\n",
+      file = codefile, append = TRUE)
+    }
+    else {
+          cat(paste(varnames, adQuote(varlabels),"\n"), ".\n",
+          file = codefile, append = TRUE)
+    }
     if (any(fav)) {
         cat("\nVALUE LABELS\n", file = codefile, append = TRUE)
         for(v in which(fav)){
@@ -93,17 +100,17 @@ writeForeignSPSS <- function(df, datafile, codefile, varnames = NULL, maxchars =
     }
 
     ord <- sapply(df, is.ordered)
-    if(any(ord)) 
-      cat("VARIABLE LEVEL", 
-        paste(strwrap(paste(varnames[ord], collapse = ", "), width=70), "\n"), 
+    if(any(ord))
+      cat("VARIABLE LEVEL",
+        paste(strwrap(paste(varnames[ord], collapse = ", "), width=70), "\n"),
         "(ordinal).\n", file = codefile, append = TRUE)
-    
+
     num <- sapply(df, is.numeric)
-    if(any(num)) 
-      cat("VARIABLE LEVEL", 
-        paste(strwrap(paste(varnames[num], collapse = ", "), width=70), "\n"), 
+    if(any(num))
+      cat("VARIABLE LEVEL",
+        paste(strwrap(paste(varnames[num], collapse = ", "), width=70), "\n"),
         "(scale).\n", file = codefile, append = TRUE)
-    
+
     cat("\nEXECUTE.\n", file = codefile, append = TRUE)
 }
 
